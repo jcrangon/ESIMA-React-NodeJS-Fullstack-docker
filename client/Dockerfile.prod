@@ -1,0 +1,22 @@
+# ---------- BUILD ----------
+FROM node:22-alpine AS build
+WORKDIR /app
+
+# Installer deps
+COPY package*.json ./
+RUN npm ci
+
+# Copier le code et builder
+COPY . .
+# Si tu utilises .env.production côté client, Vite prendra les VITE_* au build
+RUN npm run build
+
+# ---------- NGINX ----------
+FROM nginx:1.27-alpine
+# Copier le build Vite
+COPY --from=build /app/dist /usr/share/nginx/html
+# Config Nginx SPA + (option) proxy /api
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]

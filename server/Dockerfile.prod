@@ -1,0 +1,37 @@
+# ---------- BUILD ----------
+FROM node:22-alpine AS build
+WORKDIR /usr/src/app
+
+# Deps natives utiles (si bcrypt/sharp, etc.)
+RUN apk add --no-cache openssl libc6-compat python3 make g++
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+# Prisma generate (si Prisma utilisé)
+RUN if [ -f prisma/schema.prisma ]; then npx prisma generate; fi
+# Build TS -> dist (si TS)
+RUN if [ -f tsconfig.json ]; then npm run build; fi
+
+# ---------- RUN ----------
+FROM node:22-alpine
+WORKDIR /usr/src/app
+
+ENV NODE_ENV=production
+
+# Deps runtime
+COPY --from=build /usr/src/app/package*.json ./
+RUN npm ci --omit=dev
+
+# App
+COPY --from=build /usr/src/app/dist ./dist
+COPY --from=build /usr/src/app/prisma ./prisma
+
+# Dossier uploads persistant (monté en volume par compose)
+RUN mkdir -p /usr/src/app/uploads
+
+EXPOSE 8080
+
+# Migrations Prisma + démarrage
+CMD sh -c "npx prisma migrate deploy && node dist/index.js"

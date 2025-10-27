@@ -1,0 +1,64 @@
+# --- Dev image: hot-reload TypeScript avec tsx ---
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+# Dépendances natives utiles + openssl pour Prisma
+RUN apk add --no-cache openssl libc6-compat python3 make g++ bash
+
+# 1) Dépendances
+COPY package*.json ./
+RUN npm ci
+
+# 2) (optionnel) Prisma pour l’autocomplétion
+COPY prisma ./prisma
+RUN npx prisma generate || true
+
+# 3) PAS de COPY du code: il sera monté par docker-compose
+RUN mkdir -p /usr/src/app/uploads
+
+EXPOSE 8080 5555
+# CMD défini par docker-compose (npm run dev:wait)
+
+################################################################################
+### 🎓 Résumé pédagogique détaillé — Dockerfile de développement Node/TypeScript
+###
+### ✅ Objectif de cette image :
+### - Permettre le développement en hot-reload sans reconstruire l’image à chaque
+###   changement de code source (rapidité ++)
+### - Utiliser `tsx` ou `nodemon` pour recharger le serveur
+### - Gérer Prisma et ses dépendances système (OpenSSL, libc6-compat)
+###
+### ✅ Pourquoi NE PAS copier le code source ici ?
+### - Le code sera monté en volume par docker-compose :
+###       ./src → /usr/src/app/src
+###   ⟶ Les modifications locales sont visibles instantanément dans le conteneur
+###   ⟶ Pas besoin de reconstruire l’image à chaque fois
+###
+### ✅ Pourquoi installer OpenSSL + libc6-compat ?
+### - Prisma nécessite OpenSSL pour communiquer avec PostgreSQL/Mongo
+### - `libc6-compat` corrige certaines dépendances binaires manquantes dans Alpine
+###
+### ✅ Pourquoi copier seulement package.json avant npm ci ?
+### - Optimise le cache Docker 🎯
+###   Si tu modifies juste le code (et pas les dépendances),
+###   Docker ne relance pas `npm ci` (gain de temps énorme)
+###
+### ✅ npm ci plutôt que npm install ?
+### - `npm ci` est optimisé pour CI/CD + builds reproductibles
+### - Utilise exactement package-lock.json
+###
+### ✅ Ports exposés :
+### - 8080 : API backend
+### - 5555 : Prisma Studio (si utilisé)
+###
+### ✅ Commande d’exécution non fixée ici
+### - Elle sera définie dans docker-compose (ex: npm run dev:wait)
+###   pour simplifier les overrides selon l’environnement
+###
+### En résumé :
+### → Développement ultra-rapide
+### → Connexion DB Prisma fonctionnelle
+### → Caching optimal des dépendances
+### → Configuration pilotée par docker-compose
+################################################################################
