@@ -83,6 +83,7 @@ export const env = {
 
   COOKIE_SECURE: IS_PROD,
   UPLOAD_DIR: process.env.UPLOAD_DIR!,
+  MAX_UPLOAD_SIZE_MB: process.env.MAX_UPLOAD_SIZE_MB || "5",
 };
 
 if (IS_DEV) {
